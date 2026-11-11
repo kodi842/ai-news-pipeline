@@ -1,0 +1,17 @@
+# В образ уезжает только код. Данные, секреты и веса монтируются с хоста.
+.git
+.venv
+data
+secrets
+logs
+.env
+.env.example
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+docs
+tests
+deploy/docker/*.tar
+*.pdf
+.DS_Store

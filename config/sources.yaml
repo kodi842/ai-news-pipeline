@@ -1,0 +1,162 @@
+# Конфиг источников конвейера — 3 города теста
+# Собрано стратегической сессией 2026-08-20 (TGStat региональные подборки + t.me превью + поиск).
+# Статусы: verified — адрес подтверждён; resolve — цель известна, точный адрес/username
+#   найти в фазе верификации (юзербот: поиск ТГ / вступление по инвайту; VK API: groups.search);
+#   dormant — адрес верный, но источник перестал публиковать: в конвейер не берём,
+#   запись держим, чтобы не искать его заново и вернуть, если оживёт;
+#   no_feed — сайт живой, но RSS не отдаёт (нужен HTML-парсинг — отдельная задача);
+#   unreachable — адрес известен, но не открывается с нашего IP (управление из-за
+#   рубежа; решение — RU-прокси или отказ от источника, вопрос вынесен на ревью).
+# Собирается ТОЛЬКО verified. Итоги проверки лент — 02.09.2026, scripts/verify_sources.py.
+# RSS-адреса лент уточнить при реализации (обычно /rss, /feed; проверить доступность).
+# Подписчики указаны на дату сбора — для приоритизации, не для логики.
+
+defaults:
+  poll_vk_seconds: 180
+  poll_rss_seconds: 420
+  dedup_window_hours: 48
+
+cities:
+  magnitogorsk:
+    name: "Магнитогорск"
+    region: "Челябинская область"
+    population: 413000
+    tz: "Asia/Yekaterinburg"   # UTC+5
+    lat: 53.4186               # координаты для утреннего прогноза (Open-Meteo)
+    lon: 59.0472
+
+    tg_sources:
+      - { u: "example_channel_13",  note: "Верстов.Инфо — главное СМИ, 11.6к, очень активен", status: verified, priority: high }
+      - { u: "magcity74ru",  note: "Магсити74 — СМИ, 5.5к", status: verified, priority: high }
+      - { u: "vecherka_74",  note: "Вечерний Магнитогорск, 5к", status: verified, priority: mid }
+      - { u: "afishamgn",    note: "«Магнитогорск. Главное!» — новости/афиша", status: verified, priority: mid }
+      - { u: "example_channel_5",      note: "ЧП/ДТП Магнитогорск, 1.6к", status: verified, priority: mid }
+      - { u: "MMK_official", note: "ММК — градообразующий, повестка/происшествия на комбинате", status: verified, priority: low }
+      - { u: "example_channel_9",          note: "ГУ МЧС по Челябинской обл.: канал ЗАКРЫТ самим ведомством 03.01.2026 («канал завершает публикацию», отсылка в ВК/MAX/ОК). Рабочая замена — ВК-паблик chelmchs в vk_sources (§13)", status: dormant, official: true }
+      - { q: "Магнитогорск 360°",     invite: "https://t.me/+W7TBfo5bPNZhMjFi", invite_fallback: "https://t.me/joinchat/zIKbd6cUX3BhMTQy", note: "28к, живой лидер. Инвайты сняты с TGStat 02.09.2026 — вступить и перевести в verified", status: resolve, priority: high }
+      - { q: "Магнитогорск Осуждает", invite: "https://t.me/joinchat/CvOfZ1WnawlkMTli", note: "6.4к реальных, активен. Инвайт снят с TGStat 02.09.2026", status: resolve, priority: mid }
+      - { q: "Магнитогорск 24/7",     invite: "https://t.me/joinchat/Ubyy6gfP5m02MmMy", note: "2.1к. Инвайт снят с TGStat 02.09.2026; однофамильцы из поиска — не он. Если инвайт мёртв — статус dead", status: resolve, priority: low }
+    tg_regional:   # областные — парсить с фильтром по слову «Магнитогорск»
+      - { u: "news_74ru",      note: "74.RU, 169к", status: verified, filter: "магнитогорск" }
+      - { u: "url_mash",       note: "Ural Mash, 68к", status: verified, filter: "магнитогорск" }
+      - { u: "nashchelyabinsk", note: "Наш Челябинск, 125к", status: verified, filter: "магнитогорск" }
+
+    vk_sources:    # они же — приоритетные площадки посевов
+      - { s: "typical.magnitogorsk", note: "Типичный Магнитогорск — 174.9к (проверено 02.09.2026)", status: verified }
+      - { s: "vkmgn",                note: "Подслушано (Магнитогорск) — 142.5к, в перечне РКН", status: verified }
+      - { s: "verstov_info",         note: "Верстов.Инфо новости Магнитогорска — 120.8к, публикует ежедневно; ВК-версия главного СМИ города (найден 02.09.2026)", status: verified }
+      - { s: "magcity74",            note: "Все новости Магнитогорска Магсити74 — 106.6к, публикует ежедневно (найден 02.09.2026)", status: verified }
+      - { s: "chelmchs",             note: "ГУ МЧС России по Челябинской области — 13.3к, публикует ежедневно; замена мёртвой RSS-ленте МЧС (§13), фильтр по городу", status: verified, official: true, filter: "магнитогорск" }
+      - { s: "magnitogorsk_news",    note: "«Магнитогорск» — 60.4к, паблик со страницы администрации города", status: verified, priority: high }
+      - { s: "mrinfo74",             note: "Газета «Магнитогорский рабочий» — 10.6к; та же редакция, что RSS mgorsk.ru — полезная пара для калибровки дедупа", status: verified }
+      - { s: "overhear_mgn",         note: "Подслушано в магнитогорске — 0 участников, последний пост 25.02.2014: паблик мёртв (проверено 02.09.2026)", status: dead }
+      - { q: "Чёрное и белое Магнитогорск", note: "проверено 02.09.2026: кандидаты по адресам не существуют либо это чужие паблики (chb74 — Челябинск, 66 уч.). groups.search сервисному ключу недоступен", status: dead }
+
+    rss_sources:
+      - { url: "https://www.magcity74.ru/xml/rss/", note: "Магсити74, лента живая (30 записей)", status: verified }
+      - { url: "https://mgorsk.ru/rss-feeds/rss.xml", note: "«Магнитогорский рабочий» (100 записей)", status: verified }
+      - { url: "https://verstov.info", note: "главное СМИ города, но RSS не отдаёт (404 на /rss,/feed,/rss.xml) — фактура идёт из ТГ @example_channel_13", status: no_feed }
+
+    official:
+      - { url: "https://epp.genproc.gov.ru/web/proc_74/rss", note: "прокуратура области, лента региональная — фильтр по городу", status: verified, filter: "магнитогорск" }
+      - { url: "https://74.mchs.gov.ru/news/rss",  note: "федеральная лента МЧС, городских сводок нет. ТГ-канал @example_channel_9 ведомство закрыло 03.01.2026 («канал завершает публикацию», отсылая в ВК и MAX) — рабочая замена одна: ВК-паблик chelmchs, он в vk_sources (§13, проверено 02.09.2026)", status: no_feed }
+      - { url: "https://chel.sledcom.ru",          note: "СУ СК по области — не открывается с зарубежного IP", status: unreachable }
+      - { url: "https://гибдд.рф/r/74/news/rss",   note: "Госавтоинспекция-74: лента мертва (последняя запись 29.09.2021); ВК-паблика области нет — страница гибдд.рф/r/74 ведёт на федеральные аккаунты (проверено 02.09.2026)", status: dormant }
+      - { q: "сайт/ТГ администрации Магнитогорска и главы города", status: resolve }
+
+  novokuznetsk:
+    name: "Новокузнецк"
+    region: "Кемеровская область — Кузбасс"
+    population: 537000
+    tz: "Asia/Novokuznetsk"   # UTC+7
+    lat: 53.7557
+    lon: 87.1099
+
+    tg_sources:
+      - { u: "news_novokuznetsk", note: "Новости Новокузнецк, 11.2к, РКН-рег", status: verified, priority: high }
+      - { u: "example_channel_12",      note: "Типичный Новокузнецк, 9к (постит редко)", status: verified, priority: mid }
+      - { u: "your_eyes_nvkz",    note: "«Новокузнецк Моими Глазами»", status: verified, priority: mid }
+      - { u: "dtp_nk",            note: "ДТП Новокузнецка, 4.3к, принимает UGC", status: verified, priority: high }
+      - { u: "novokuznetsk_news", note: "Кузница Новостей, 3.8к", status: verified, priority: mid }
+      - { u: "nvkz_one",          note: "Новокузнецк столичный, 3.8к", status: verified, priority: mid }
+      - { u: "kuz_plus",          note: "Кузня+, 1.6к", status: verified, priority: low }
+      - { u: "news10kanal",       note: "10 канал (гор. ТВ), активен", status: verified, priority: high }
+      - { u: "example_channel_11",          note: "ТВН — телевидение Новокузнецка; молчит с 23.04.2026, проверено по собранной ленте (ревью фазы 1)", status: dormant, priority: high }
+      - { u: "ilyin_nk",          note: "глава города — официальные заявления", status: verified, priority: mid }
+      - { u: "admnkz_press",      note: "пресс-служба администрации Новокузнецка — 5.2к, публикует ежедневно (найдена по ссылке с admnkz.info, 02.09.2026)", status: verified, official: true, priority: mid }
+      - { u: "example_channel_10",      note: "ГУ МЧС по Кузбассу: молчит с 27.04.2026. Рабочая замена — ВК-паблик club40327116 в vk_sources (§13)", status: dormant, official: true }
+      - { q: "Новокузнецк 360°",     invite: "https://t.me/+isiXIaNVpGk0ZjVi", invite_fallback: "https://t.me/joinchat/G8f4iGVJpN01NjIy", note: "25к, живой лидер. Инвайты сняты с TGStat 02.09.2026", status: resolve, priority: high }
+      - { q: "Новокузнецк в эфире",  invite: "https://t.me/joinchat/hsByMqBxw3I1OTMy", note: "8.6к. Инвайт снят с TGStat 02.09.2026", status: resolve, priority: mid }
+      - { u: "incident_nvkz", note: "Инцидент Новокузнецк — 26.7к, публикует ежедневно; найден поиском юзербота 02.09.2026", status: verified, priority: high }
+    tg_regional:
+      - { u: "incident_42kuzbass", note: "ЧП Инцидент Кузбасс — главный обл. ЧП-канал", status: verified, filter: "новокузнецк" }
+      - { u: "ngs42",              note: "NGS42.RU", status: verified, filter: "новокузнецк" }
+      - { u: "mediakailo",         note: "Кузнецкое кайло — обл. аналитика", status: verified, filter: "новокузнецк", priority: low }
+
+    vk_sources:
+      - { s: "novokuznetsk_group",  note: "«Новокузнецк» — городское сообщество, 173.9к (проверено 02.09.2026)", status: verified }
+      - { s: "zapsib_slukh",        note: "Подслушано [Запсиб] Новокузнецк — 31.8к, живой UGC-паблик района (найден 02.09.2026)", status: verified }
+      - { s: "incident_kuzbass",    note: "Инцидент Кузбасс — 419.2к, областной ЧП-паблик, публикует ежедневно; фильтр по городу (найден 02.09.2026)", status: verified, filter: "новокузнецк" }
+      - { s: "club40327116",        note: "ГУ МЧС России по Кемеровской области — 7.2к, публикует ежедневно; замена мёртвой RSS-ленте МЧС (§13), фильтр по городу", status: verified, official: true, filter: "новокузнецк" }
+      - { s: "gibdd42",             note: "Госавтоинспекция Кузбасса — 9.2к, публикует ежедневно; замена мёртвой ленте ГИБДД (§13), фильтр по городу", status: verified, official: true, filter: "новокузнецк" }
+      - { s: "nvkzadm42",           note: "Администрация города Новокузнецка — 20.5к, публикует ежедневно (найдена по ссылке с admnkz.info)", status: verified, official: true }
+      - { s: "podslushano_novokunetsk", note: "3 участника, последний пост 27.01.2015 — паблик мёртв (проверено 02.09.2026)", status: dead }
+      - { q: "Типичный Новокузнецк", note: "проверено 02.09.2026: vk.com/example_channel_12 — 911 уч., последний пост 19.03.2013; живого одноимённого паблика нет (ТГ-канал @example_channel_12 — другой источник, он в tg_sources)", status: dead }
+
+    rss_sources:
+      - { url: "https://feeds.feedburner.com/city-n", note: "«Город новостей» — гор. СМИ, лента живая (25 записей)", status: verified }
+      - { url: "https://nk-tv.com/feed", note: "НК-ТВ, лента живая", status: verified }
+      - { url: "https://ngs42.ru/rss-feeds/rss.xml", note: "NGS42 — областное СМИ, фильтр по городу", status: verified, filter: "новокузнецк" }
+      - { url: "https://vse42.ru",   note: "RSS не отдаёт (404 на /rss, /feed — не лента)", status: no_feed }
+      - { url: "https://kuzpress.ru", note: "не открывается с зарубежного IP", status: unreachable }
+
+    official:
+      - { url: "https://epp.genproc.gov.ru/web/proc_42/rss", note: "прокуратура Кузбасса, лента региональная — фильтр по городу", status: verified, filter: "новокузнецк" }
+      - { url: "https://42.mchs.gov.ru/news/rss",  note: "федеральная лента МЧС. ТГ-канал @example_channel_10 молчит с 27.04.2026 — рабочая замена одна: ВК-паблик club40327116, он в vk_sources (§13, проверено 02.09.2026)", status: no_feed }
+      - { url: "https://kemerovo.sledcom.ru",      note: "СУ СК — не открывается с зарубежного IP", status: unreachable }
+      - { url: "https://гибдд.рф/r/42/news/rss",   note: "Госавтоинспекция-42: лента мертва (последняя запись 07.05.2025). Замена найдена — ВК-паблик gibdd42 «Госавтоинспекция Кузбасса», он в vk_sources (§13)", status: dormant }
+      - { url: "https://admnkz.info",              note: "администрация Новокузнецка: RSS нет (404)", status: no_feed }
+
+  cherepovets:
+    name: "Череповец"
+    region: "Вологодская область"
+    population: 301000
+    tz: "Europe/Moscow"   # UTC+3
+    lat: 59.1269
+    lon: 37.9092
+
+    tg_sources:
+      - { u: "example_channel_7",        note: "ГородЧе — лидер, 37к (постит редко — наше окно)", status: verified, priority: high }
+      - { u: "example_channel_6", note: "официальный канал города (cherinfo), 12.2к, активен", status: verified, priority: high }
+      - { u: "tvkanal12_che",   note: "Канал 12 — гор. ТВ, 4.6к, очень активен", status: verified, priority: high }
+      - { u: "dtp_che35",       note: "ЧП и ДТП Череповец, 3.5к", status: verified, priority: high }
+      - { u: "cherprachka",     note: "Череповецкая прачечная — инсайды/сплетни, 2.9к", status: verified, priority: mid }
+      - { u: "justnewsinvol",   note: "«Кот в автобусе», 0.9к", status: verified, priority: low }
+      - { u: "nakroshaevAN",    note: "глава города — официальные заявления", status: verified, priority: mid }
+      - { u: "example_channel_8",              note: "ГУ МЧС по Вологодской обл.: молчит с 19.02.2026. Рабочая замена — одноимённый ВК-паблик example_channel_8 в vk_sources (§13)", status: dormant, official: true }
+      - { q: "Череповец 360°",              invite: "https://t.me/+Q9efYNJk8TFlN2My", invite_fallback: "https://t.me/joinchat/EJ9L3TTeDPI1MWVi", note: "20.5к. Инвайты сняты с TGStat 02.09.2026 (есть ещё запасной +Z21gKiMjyz4zNzUy)", status: resolve, priority: high }
+      - { q: "Череповец (происшествия, 2.2к)", invite: "https://t.me/joinchat/48axGmXpbAc0NDcy", note: "Инвайт снят с TGStat 02.09.2026; канал вялый (посты раз в 2 дня) — если мёртв, статус dead", status: resolve, priority: low }
+    tg_regional:
+      - { u: "vob351", note: "Вологодчина сегодня, 9к", status: verified, filter: "череповец" }
+
+    vk_sources:
+      - { s: "cherepovec_podslushano", note: "Подслушано Череповец — 29.7к (проверено 02.09.2026)", status: verified }
+      - { s: "cityche",                note: "Подслушано Череповец (cityche) — 40.1к", status: verified }
+      - { s: "gorod_cherepovets",      note: "Подслушано Череповец (gorod_cherepovets) — 92.4к, крупнейший из череповецких", status: verified }
+      - { s: "overheard_cherepovets",  note: "Подслушано Череповец (overheard) — 32.1к", status: verified }
+      - { s: "cherinfo_ru",  note: "«Череповец» — ВК-группа гор. интернет-газеты cherinfo, 111.5к, публикует ежедневно (найден 02.09.2026)", status: verified }
+      - { s: "example_channel_8",       note: "МЧС Вологодской области — 25.2к, публикует ежедневно; замена мёртвой RSS-ленте МЧС (§13), фильтр по городу", status: verified, official: true, filter: "череповец" }
+      - { q: "ЧП Череповец (ВК)", note: "проверено 02.09.2026: кандидаты — мёртвые крохи (chpche — 6 уч. с 2016, dtp_che35 — 18 уч. с 2016); отдельного ЧП-паблика нет, ЧП идут через «Подслушано»", status: dead }
+
+    rss_sources:
+      - { url: "https://35media.ru/rss", note: "Медиа-Центр: «Речь», Канал 12 — лента живая", status: verified }
+      - { url: "https://www.example_channel_7.ru/yandex.xml", note: "ГородЧе, лента для Яндекс.Новостей (94 записи)", status: verified }
+      - { url: "https://newsvo.ru/yandex.xml", note: "обл. СМИ — фильтр по городу", status: verified, filter: "череповец" }
+      - { url: "https://cherinfo.ru", note: "гор. интернет-газета мэрии: RSS не отдаёт (400/404) — фактура идёт из ТГ @example_channel_6", status: no_feed }
+
+    official:
+      - { url: "https://epp.genproc.gov.ru/web/proc_35/rss/", note: "прокуратура области, лента региональная — фильтр по городу", status: verified, filter: "череповец" }
+      - { url: "https://35.mchs.gov.ru/news/rss",  note: "федеральная лента МЧС. ТГ-канал @example_channel_8 молчит с 19.02.2026 — рабочая замена одна: ВК-паблик example_channel_8, он в vk_sources (§13, проверено 02.09.2026)", status: no_feed }
+      - { url: "https://vologda.sledcom.ru",       note: "СУ СК — не открывается с зарубежного IP", status: unreachable }
+      - { url: "https://гибдд.рф/r/35/news/rss",   note: "Госавтоинспекция-35: лента мертва, ВК-паблика области нет (страница ведёт на федеральные аккаунты, проверено 02.09.2026)", status: dormant }
+      - { url: "https://mayor.cherinfo.ru",        note: "мэрия: адрес отдаёт 404", status: no_feed }

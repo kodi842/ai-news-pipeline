@@ -1,0 +1,296 @@
+# Параметры процесса. Города и источники — в config/sources.yaml.
+# Всё, что здесь, можно переопределить переменными окружения TGTRAFF_* (см. .env.example).
+
+# Какие города конвейер обслуживает прямо сейчас (гейт мес.2 сузит список до победителя).
+active_cities:
+  - magnitogorsk
+  - novokuznetsk
+  - cherepovets
+
+paths:
+  db: data/tgtraff.db
+  media_dir: data/media
+  session: secrets/userbot.session      # session-файл юзербота, в git не попадает
+
+collector:
+  # Догон пропущенного за время простоя: за какой период добираем и сколько
+  # сообщений максимум на источник (второе — предохранитель для активных лент).
+  catchup_hours: 24
+  catchup_limit: 200
+  # Медиа больше лимита не качаем (в raw_media останется запись со status=skipped).
+  media_max_mb: 50
+  # Медиа качаем только у постов свежее этого возраста: исторический догон тянуть
+  # тысячи старых картинок не должен (и трафик, и здоровье аккаунта).
+  media_backfill_hours: 24
+  media_download_timeout_sec: 300
+  media_max_attempts: 3
+  # Пауза перед реконнектом при обрыве связи.
+  reconnect_delay_sec: 15
+
+# Временный поллинг ТГ на время прогрева (QUESTIONS §8): неподписанные источники
+# читаются опросом, подписанные приходят событием. Когда прогрев подпишет все,
+# модуль выключится сам — трогать этот блок не нужно.
+poll_fallback:
+  enabled: true
+  interval_min_sec: 180    # норматив доставки на время прогрева: не реже раза в 6 мин
+  interval_max_sec: 300
+  batch_size: 8            # пачка источников за раз
+  batch_pause_sec: 5       # пауза между пачками: без всплеска запросов с молодого аккаунта
+  limit_per_source: 20
+
+# Поллеры фазы 2. Интервалы взяты из defaults в sources.yaml (решение стратегической
+# сессии): ВК — раз в 3 мин, RSS — раз в 7 мин.
+vk:
+  poll_seconds: 180        # спека: раз в 2-3 мин
+  posts_per_source: 20     # сколько последних постов стены смотрим за проход
+  api_version: "5.199"
+  request_timeout_sec: 20
+
+rss:
+  poll_seconds: 420        # спека: раз в 5-10 мин
+  entries_per_feed: 30
+  request_timeout_sec: 20
+
+warmup:
+  # Плавная подписка юзербота на источники: 5-10 каналов в день, случайные паузы,
+  # только в человеческие часы. Прогрев идёт по часам этой зоны.
+  tz: Europe/Moscow
+  per_day_min: 5
+  per_day_max: 10
+  hour_from: 10          # не раньше 10:00 локального времени
+  hour_to: 23            # и не позже 23:00
+  gap_minutes_min: 12    # случайная пауза между вступлениями
+  gap_minutes_max: 95
+
+# Дедуп (спека §3, фаза 3). Два уровня: точные хэши (нормализованный текст,
+# perceptual hash картинок) и семантика — эмбеддинги ЛОКАЛЬНОЙ модели,
+# без внешних API. Порог откалиброван на живой ленте трёх городов
+# (docs/PROGRESS.md, фаза 3): при 0.85 ложных склеек не найдено.
+dedup:
+  enabled: true
+  model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+  model_dir: data/models        # веса лежат рядом с проектом, качаются один раз
+  device: cpu
+  batch_size: 32
+  text_prefix: ""               # у моделей e5 здесь нужен "query: "
+  allow_download: true          # на VPS ставить false — работа строго офлайн
+
+  threshold: 0.85               # cosine-порог склейки (спека: старт 0.85)
+  window_hours: 48
+  centroid_margin: 0.05         # запас для проверки «пост похож на кластер целиком»
+  min_chars_for_semantic: 40
+  same_source_daily_guard: true # «Погода на N сентября» у одного источника — рубрика
+  daily_gap_tolerance_min: 90
+  same_source_semantic: false   # рубрики канала («Момент ДТП на …») — не одна новость
+  template_min_repeats: 3       # текст, приходивший столько раз, — объявление-шаблон
+  template_max_gap_hours: 6     # по шаблону склеиваем только внутри эпизода
+  entity_guard: true            # общее имя собственное обязательно (шаблонные сводки)
+  entity_guard_min: 3
+  entity_guard_max_sim: 0.95
+
+  phash_max_distance: 6         # из 64 бит; дальше — уже другая картинка
+  phash_boilerplate_min: 3      # картинка у стольких постов источника — шаблон
+  phash_text_floor: 0.45
+
+  poll_seconds: 60
+  batch_limit: 300
+  defer_minutes: 15
+
+# ---------------------------------------------------------------- фаза 4 ----
+# Rewriter + safety. Ключ Anthropic — только в .env (ANTHROPIC_API_KEY),
+# в конфиг он не попадает.
+
+llm:
+  enabled: true
+  model: claude-haiku-4-5          # спека §5: модель Haiku
+  vision_model: claude-haiku-4-5   # детектор вотермарков — та же Haiku
+  max_tokens: 1200
+  timeout_sec: 60
+  max_retries: 3
+  # Предохранитель на процесс: 0 — без лимита. Для калибровочных прогонов
+  # ставьте 1-3 (бюджет фазы 4 по спеке), скрипт остановится сам.
+  budget_usd: 0
+  cache_system: true               # стайлгайд и few-shot кэшируются (спека §5)
+
+relevance:
+  enabled: true
+  use_llm: true                    # правила работают и без модели
+  max_chars: 900
+  max_tokens: 200
+  drop_off_topic: true             # отсеивать посты не про наш город
+
+rewriter:
+  enabled: true
+  max_tokens: 1200
+  max_chars_per_post: 1800
+  max_posts: 8
+  check_facts: true                # сверка «нет ли в драфте фактов не из кластера»
+  min_fact_chars: 80               # меньше — драфт помечается low_facts (ручная модерация)
+  # style_path / few_shot_path — если понадобится свой стайлгайд под канал:
+  # style_path: config/style/chp.md
+
+media:
+  use_template_cover: true         # ступень 3 каскада: своя обложка (Pillow)
+  max_checks: 2                    # сколько картинок кластера отдаём vision за драфт
+  allow_unverified_video: true     # видео идёт модератору с пометкой «не проверено»
+
+safety:
+  enabled: true
+  use_llm: true
+  max_tokens: 300
+  max_chars: 2500
+  # Спека §6 + решение владельца §59 (2026-09-05): автопубликация включена
+  # ВРУЧНУЮ после калибровки, и только на нейтральных категориях.
+  # Пост уходит без модератора, лишь если сошлось ВСЁ: safety=safe, категория
+  # из списка, нет флагов (low_facts / unsupported_facts / media_unverified),
+  # origin=news (UGC — всегда руками), urgency=normal (молнии — руками),
+  # и слот — обычный, из сетки с паузами.
+  # ПУСТОЙ СПИСОК = kill-switch: автопубликации нет вовсе, кода править не надо.
+  # dtp / fire / crime — руками до недельной статистики (жертвы, имена,
+  # презумпция невиновности). Первый инцидент = категория выбывает из списка.
+  autopublish_categories: [weather, utility, city, other]
+
+# ---------------------------------------------------------------- фаза 5 ----
+# Модерация и публикация. Токены ботов и id каналов — только в .env.
+# Куда публикуем (город → канал, слоты, лимиты) — config/channels.yaml.
+
+publisher:
+  enabled: true
+  poll_seconds: 20        # верхняя граница задержки «молнии» после кнопки
+  max_attempts: 3
+  stale_after_hours: 12   # пост, просидевший в очереди дольше, — протухший
+  # Сервисные автопосты (спека §8): наш собственный контент без фактуры
+  # источников — модерации не требует, выключается этим флагом.
+  service_enabled: true
+  weather_hour: 8         # локальное время города
+  top_hour: 21
+  top_size: 5
+  signature: true
+  ugc_button: true
+
+moderation:
+  enabled: true
+  poll_seconds: 10        # как часто бот выкладывает новые карточки
+  cards_per_tick: 3       # очередь после ночи длинная, а чат — не лента
+  # §57: алерт считает только СРОЧНОЕ без решения (молния, UGC, manual_only).
+  # Пул несрочного после §55 велик by design и в счёт не идёт — он в /queue.
+  queue_alert_size: 20         # столько неразобранного срочного = «не справляемся»
+  queue_alert_repeat_hours: 6  # и не чаще раза в столько часов, пока не разобрано
+  silent_source_hours: 24 # алерт «источник молчит» (спека §7)
+  monitor_seconds: 900
+  # Решение ревью §55. Карточкой сразу пушится только срочное (молния, UGC,
+  # safety=manual_only) — остальное копится и выдаётся по /queue свежими вперёд.
+  # Драфт без решения дольше срока протухает (stale): в канал не идёт, кластер
+  # не блокируется — §28 вернёт новость, если придёт фактура.
+  stale_hours: 24         # обычный драфт
+  stale_flash_hours: 6    # молния: не вышла за 6 часов — молнией быть перестала
+  stale_per_tick: 20      # сколько протухших карточек переписываем за тик
+  queue_default: 10       # /queue без числа — сводка; кнопка под ней выдаёт столько
+  # Кто имеет право нажимать кнопки. Пусто — бот не отвечает никому и подскажет
+  # ваш id при /start. Можно задать здесь списком или переменной ADMIN_CHAT_IDS.
+  moderators: []
+
+# ---------------------------------------------------------------- фаза 6 ----
+# Метрики (спека §9) и ретеншн. Просмотры снимает юзербот (Bot API их не
+# отдаёт), подписчиков и вступления по ссылкам — Bot API.
+
+metrics:
+  enabled: true
+  views_poll_seconds: 900      # как часто обновляем просмотры своих постов
+  views_window_hours: 72       # после этого пост просмотры почти не набирает
+  views_batch: 100
+  subs_poll_seconds: 3600      # снимок «подписчики + охват + ER»
+  reach_window_hours: 24
+
+  digest_enabled: true
+  digest_hour: 22              # час дайджеста в зоне ниже
+  digest_tz: Europe/Moscow
+  digest_top: 3
+
+  # Инвайт-ссылки под КАЖДЫЙ будущий источник трафика — заводятся заранее,
+  # до первого рубля закупа (чек-лист прогрева, п.5). Ссылка, созданная после
+  # старта объявления, теряет первых пришедших, и CPF площадки уже не собрать.
+  # kind: paid — попадает в CPF; organic — прирост без рублей, CPF не считается.
+  invite_links_enabled: true
+  invite_sources:
+    - {name: vk_target,   title: "VK-таргет по гео",      kind: paid}
+    - {name: vk_seeding,  title: "Посевы в ВК-пабликах",  kind: paid}
+    - {name: tg_ads,      title: "Закуп в ТГ-каналах",    kind: paid}
+    - {name: clips_vk,    title: "VK Клипы",              kind: organic}
+    - {name: clips_other, title: "Клипы: Дзен/OK/Rutube", kind: organic}
+    - {name: vk_group,    title: "Наша VK-группа",        kind: organic}
+    - {name: chats,       title: "Городские чаты",        kind: organic}
+    - {name: tgstat,      title: "Каталог TGStat",        kind: organic}
+    - {name: cross,       title: "Взаимопиар",            kind: organic}
+
+retention:
+  enabled: true
+  filtered_out_days: 30        # спека фазы 6
+  # Медиа: файл живёт две недели, потом уходит с диска (запись, sha256 и phash
+  # остаются). Замер перед деплоем: ~130 МБ в сутки — на VPS это главный
+  # потребитель места. Медиа, выбранное драфтом, не удаляется никогда.
+  media_days: 14
+  subs_metrics_days: 400       # данные гейта месяца 2 — весь пилот не трогаем
+  llm_usage_days: 400
+  hour: 4
+  tz: Europe/Moscow
+
+# ------------------------------------------------------------- фаза V1 ------
+# Завод коротких видео (docs/VIDEO-SPEC.md). Клипы 9:16 из лучших новостей
+# конвейера: VK Клипы — главная площадка, OK/Rutube — вторые.
+# В V1 публикация РУЧНАЯ: карточка с готовым mp4 приходит модератору.
+#
+# ПРЕДОХРАНИТЕЛЬ: `enabled: false` — завода нет вовсе, кода править не надо.
+# Пока каналы в `mode: test`, юзернейма у них нет, и в аутро клипа некуда
+# вести зрителя — такой клип публиковать бессмысленно, а платить за него
+# (скоринг + сценарий ≈ $0.03) незачем. Поэтому завод ВЫКЛЮЧЕН и включается
+# той же рукой, что переводит channels.yaml в `mode: live`
+# (VIDEO-SPEC, «Порядок включения»: CTA обязан вести в живой наполненный канал).
+# Разовый прогон при выключенном заводе: scripts/clips.py --once --force
+
+clips:
+  enabled: false
+  clips_per_day: 3            # на ГОРОД (спека: старт 3)
+  min_score: 6                # порог виральности из клип-скоринга, шкала 1-10
+  favorite_categories: [dtp, fire, weather, city]
+  blocked_categories: []      # выключить категорию из клипов, не трогая код
+  max_age_hours: 24           # новость старше суток клипом не становится
+  score_per_pass: 8           # предохранитель по деньгам: кандидатов за проход
+
+  # Кандидаты (спека): живое видео ≥8 с ИЛИ ≥2 пригодных фото.
+  min_video_seconds: 8
+  min_photos: 2
+  max_photos: 5
+  # Замер на живой ленте (PROGRESS, V1): чужой знак у ~60% фото источников,
+  # поэтому четырёх проверок на кластер мало — двух чистых кадров не набрать.
+  # Вердикт кэшируется на медиа навсегда и переиспользуется постами.
+  max_checks: 8               # платных проверок на чужой знак на клип
+
+  # Сборка. Спека: 1080×1920, 15-40 с, пресет veryfast, ~4-6 Мбит, ≤40 МБ.
+  width: 1080
+  height: 1920
+  fps: 30
+  min_seconds: 15
+  max_seconds: 40
+  photo_seconds: 4            # сколько держим кадр слайдшоу без озвучки
+  outro_seconds: 1            # аутро с CTA и юзернеймом
+  preset: veryfast
+  video_bitrate: 5M
+  max_file_mb: 40
+
+  # Речь. Whisper — только если в видео есть речь; голос TTS ОДИН на сеть.
+  whisper_enabled: true
+  whisper_model: base
+  whisper_compute: int8
+  whisper_allow_download: true   # на VPS после привоза весов ставить false
+  tts_voice: ru-RU-DmitryNeural
+  tts_rate: "+8%"
+
+  # Инфраструктура. Рендер очередью, параллельность 1: 2 vCPU делим с дедупом.
+  render_parallelism: 1
+  ffmpeg_threads: 2
+  render_timeout_sec: 900
+  max_attempts: 3
+  poll_seconds: 300
+  retention_days: 14          # как у медиа: файл уходит, строка остаётся
+  platforms: ["VK Клипы", "OK", "Rutube"]

@@ -1,0 +1,37 @@
+[project]
+name = "tgtraff"
+version = "0.1.0"
+description = "Контент-конвейер сетки региональных ТГ-каналов (пилот: Магнитогорск, Новокузнецк, Череповец)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "telethon>=1.36,<2.0",   # чтение источников (юзербот, only-read)
+    "pyyaml>=6.0",           # конфиг
+    "python-dotenv>=1.0",    # секреты из .env
+    "httpx>=0.27",           # ВК API, RSS, алерты Bot API (фаза 2)
+    "feedparser>=6.0",       # RSS-ленты СМИ и ведомств (фаза 2)
+    "sentence-transformers>=3.0",  # локальная модель эмбеддингов, дедуп (фаза 3)
+    "Pillow>=10.0",          # perceptual hash картинок (фаза 3), шаблонные обложки (фаза 5)
+    "numpy>=1.26",           # векторы и DCT
+    "anthropic>=1.3",        # Haiku: relevance, rewriter, safety, vision (фаза 4)
+    "aiogram>=3.13,<4",      # админ-бот модерации, UGC-бот, постинг через Bot API (фаза 5)
+    "edge-tts>=7.0",         # озвучка клипов (фаза V1), бесплатно, голос один на сеть
+    "faster-whisper>=1.1",   # субтитры с речи в клипах (CPU; быстрее openai-whisper)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"

@@ -1,0 +1,74 @@
+# Куда публикует конвейер (спека §8). Структура — здесь, идентификаторы каналов —
+# в окружении (.env, в git не попадает): у тестового и боевого канала свои
+# переменные.
+#
+# ПРЕДОХРАНИТЕЛЬ: пока `mode: test`, боевой id не разрешается, даже если лежит
+# в .env рядом. Переключение на `live` — ручное решение владельца, не конвейера.
+mode: test
+
+defaults:
+  # Прайм-таймы в ЛОКАЛЬНОМ времени города (Череповец UTC+3, Магнитогорск UTC+5,
+  # Новокузнецк UTC+7): спека §8 — 07-09, 12-14, 18-22.
+  slots:
+    - "07:00-09:00"
+    - "12:00-14:00"
+    - "18:00-22:00"
+  min_gap_minutes: 20      # пауза между постами: спека §8 — 20-40 мин
+  max_gap_minutes: 40
+  daily_limit: 18          # дневной потолок: спека §8 — 15-25
+  signature: true          # подпись под постом (PINS.md §3)
+  ugc_button: true         # кнопка «Прислать новость» → UGC-бот
+
+# У tg-блока города есть необязательные ключи под тестовый прогон:
+#   test_username: example_test_channel   — если тестовый канал публичный (по умолчанию
+#                                   в тестовом режиме юзернейма нет вовсе, и пост
+#                                   ссылается на себя формой t.me/c/<id>/<msg>;
+#                                   боевой username в тесте не используется —
+#                                   такого канала ещё не существует);
+#   test_title: ЧП Магнитогорск ТЕСТ — если в подписи нужно другое название.
+
+# Кросс-постинг в ВК (§41) включается ПО ГОРОДАМ: `vk.enabled: true` + токен
+# СООБЩЕСТВА этого города (права wall+photos) в переменной из `token_env`.
+# Общего ключа на сеть у ВК не бывает — сообщество выдаёт ключ только на себя,
+# и сервисный ключ фазы 2 на стену писать не умеет. Жёсткий срок включения —
+# ДО старта закупа: мёртвая группа роняет конверсию посевов.
+#
+# Один UGC-бот на сеть, город приходит deep-link'ом (DECISIONS.md).
+ugc_bot: example_channel_3
+
+cities:
+  magnitogorsk:
+    deep_link: mgn
+    tg:
+      test_chat_id_env: TG_CHANNEL_MAGNITOGORSK_TEST
+      live_chat_id_env: TG_CHANNEL_MAGNITOGORSK
+      username: example_channel_4
+      title: ЧП Магнитогорск
+    vk:
+      enabled: false       # включится, когда появится токен сообщества (wall+photos)
+      group_id_env: VK_GROUP_MAGNITOGORSK
+      token_env: VK_GROUP_TOKEN_MAGNITOGORSK
+
+  novokuznetsk:
+    deep_link: nvk
+    tg:
+      test_chat_id_env: TG_CHANNEL_NOVOKUZNETSK_TEST
+      live_chat_id_env: TG_CHANNEL_NOVOKUZNETSK
+      username: chp_novokuznetsk42
+      title: ЧП Новокузнецк
+    vk:
+      enabled: false
+      group_id_env: VK_GROUP_NOVOKUZNETSK
+      token_env: VK_GROUP_TOKEN_NOVOKUZNETSK
+
+  cherepovets:
+    deep_link: che
+    tg:
+      test_chat_id_env: TG_CHANNEL_CHEREPOVETS_TEST
+      live_chat_id_env: TG_CHANNEL_CHEREPOVETS
+      username: example_channel_1
+      title: ЧП Череповец
+    vk:
+      enabled: false
+      group_id_env: VK_GROUP_CHEREPOVETS
+      token_env: VK_GROUP_TOKEN_CHEREPOVETS
